@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GCP Cost Intelligence</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f8f9fa;
+      color: #202124;
+    }
+    header {
+      background: #1a73e8;
+      color: white;
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    header h1 { font-size: 20px; font-weight: 500; }
+    header span { font-size: 13px; opacity: 0.85; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 24px 32px; }
+
+    /* Summary card */
+    .summary-card {
+      background: white;
+      border-radius: 8px;
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      display: flex;
+      align-items: flex-start;
+      gap: 32px;
+    }
+    .total-cost { flex-shrink: 0; }
+    .total-cost .amount {
+      font-size: 42px;
+      font-weight: 600;
+      color: #1a73e8;
+    }
+    .total-cost .label {
+      font-size: 13px;
+      color: #5f6368;
+      margin-top: 2px;
+    }
+    .summary-text { flex: 1; }
+    .summary-text h2 { font-size: 16px; font-weight: 500; margin-bottom: 8px; }
+    .summary-text p { font-size: 14px; color: #5f6368; line-height: 1.6; }
+
+    /* Grid */
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
+
+    /* Cards */
+    .card {
+      background: white;
+      border-radius: 8px;
+      padding: 20px 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .card h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #5f6368;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      margin-bottom: 16px;
+    }
+
+    /* Services list */
+    .service-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #f1f3f4;
+      font-size: 14px;
+    }
+    .service-row:last-child { border-bottom: none; }
+    .service-name { color: #202124; }
+    .service-cost { font-weight: 500; color: #202124; }
+    .trend {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-weight: 500;
+    }
+    .trend.increasing { background: #fce8e6; color: #c5221f; }
+    .trend.stable     { background: #e8f0fe; color: #1a73e8; }
+    .trend.decreasing { background: #e6f4ea; color: #137333; }
+
+    /* Anomalies */
+    .anomaly {
+      padding: 12px;
+      border-radius: 6px;
+      margin-bottom: 10px;
+      border-left: 3px solid;
+      font-size: 14px;
+    }
+    .anomaly.high   { background: #fce8e6; border-color: #c5221f; }
+    .anomaly.medium { background: #fef7e0; border-color: #f9ab00; }
+    .anomaly.low    { background: #e8f0fe; border-color: #1a73e8; }
+    .anomaly-title  { font-weight: 500; margin-bottom: 4px; }
+    .anomaly-impact { font-size: 12px; color: #5f6368; }
+
+    /* Recommendations */
+    .recommendations { margin-bottom: 24px; }
+    .rec-card {
+      background: white;
+      border-radius: 8px;
+      padding: 20px 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+    }
+    .rec-savings {
+      flex-shrink: 0;
+      background: #e6f4ea;
+      color: #137333;
+      font-weight: 600;
+      font-size: 14px;
+      padding: 8px 14px;
+      border-radius: 6px;
+      text-align: center;
+      min-width: 90px;
+    }
+    .rec-savings small { display: block; font-size: 10px; font-weight: 400; }
+    .rec-body { flex: 1; }
+    .rec-title { font-size: 15px; font-weight: 500; margin-bottom: 4px; }
+    .rec-desc  { font-size: 13px; color: #5f6368; line-height: 1.5; }
+    .effort {
+      display: inline-block;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 12px;
+      margin-top: 6px;
+      font-weight: 500;
+    }
+    .effort.low    { background: #e6f4ea; color: #137333; }
+    .effort.medium { background: #fef7e0; color: #f9ab00; }
+    .effort.high   { background: #fce8e6; color: #c5221f; }
+
+    .no-anomalies {
+      text-align: center;
+      color: #5f6368;
+      font-size: 14px;
+      padding: 20px;
+    }
+    .powered-by {
+      text-align: center;
+      font-size: 12px;
+      color: #9aa0a6;
+      padding: 24px 0;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>GCP Cost Intelligence</h1>
+  <span>Report date: {{ report.report_date }} &nbsp;|&nbsp; Powered by Claude AI</span>
+</header>
+
+<div class="container">
+
+  <!-- Summary -->
+  <div class="summary-card">
+    <div class="total-cost">
+      <div class="amount">${{ "%.2f"|format(report.total_cost) }}</div>
+      <div class="label">Last 7 days</div>
+    </div>
+    <div class="summary-text">
+      <h2>AI Summary</h2>
+      <p>{{ report.summary }}</p>
+    </div>
+  </div>
+
+  <!-- Services + Anomalies -->
+  <div class="grid">
+    <div class="card">
+      <h3>Top services by spend</h3>
+      {% for svc in report.top_services %}
+      <div class="service-row">
+        <span class="service-name">{{ svc.service }}</span>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="service-cost">${{ "%.2f"|format(svc.cost) }}</span>
+          <span class="trend {{ svc.trend }}">{{ svc.trend }}</span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="card">
+      <h3>Anomalies detected</h3>
+      {% if report.anomalies %}
+        {% for anomaly in report.anomalies %}
+        <div class="anomaly {{ anomaly.severity }}">
+          <div class="anomaly-title">{{ anomaly.description }}</div>
+          <div class="anomaly-impact">{{ anomaly.impact }}</div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="no-anomalies">No anomalies detected</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Recommendations -->
+  <div class="recommendations">
+    <div class="card" style="margin-bottom:16px">
+      <h3>AI Optimization recommendations</h3>
+    </div>
+    {% for rec in report.recommendations %}
+    <div class="rec-card">
+      <div class="rec-savings">
+        {{ rec.estimated_savings }}
+        <small>est. savings</small>
+      </div>
+      <div class="rec-body">
+        <div class="rec-title">{{ rec.title }}</div>
+        <div class="rec-desc">{{ rec.description }}</div>
+        <span class="effort {{ rec.effort }}">{{ rec.effort }} effort</span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="powered-by">
+    GCP Cost Intelligence Platform &nbsp;|&nbsp; 
+    Powered by Claude AI + BigQuery &nbsp;|&nbsp;
+    Built by Nerav Rangari
+  </div>
+
+</div>
+</body>
+</html>

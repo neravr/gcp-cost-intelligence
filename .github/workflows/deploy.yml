@@ -1,0 +1,112 @@
+name: Deploy GCP Cost Intelligence
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: gcp-cost-intelligence
+  REGION: us-central1
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.6.0"
+
+      - name: Terraform init
+        working-directory: terraform
+        run: terraform init
+
+      - name: Terraform plan
+        working-directory: terraform
+        run: |
+          terraform plan \
+            -var="project_id=${{ env.PROJECT_ID }}" \
+            -var="region=${{ env.REGION }}" \
+            -var="anthropic_api_key=${{ secrets.ANTHROPIC_API_KEY }}" \
+            -var="sendgrid_api_key=${{ secrets.SENDGRID_API_KEY }}" \
+            -var="report_email=${{ secrets.REPORT_EMAIL }}" \
+            -var="billing_table=${{ secrets.BILLING_TABLE }}"
+
+      - name: Terraform apply
+        working-directory: terraform
+        run: |
+          terraform apply -auto-approve \
+            -var="project_id=${{ env.PROJECT_ID }}" \
+            -var="region=${{ env.REGION }}" \
+            -var="anthropic_api_key=${{ secrets.ANTHROPIC_API_KEY }}" \
+            -var="sendgrid_api_key=${{ secrets.SENDGRID_API_KEY }}" \
+            -var="report_email=${{ secrets.REPORT_EMAIL }}" \
+            -var="billing_table=${{ secrets.BILLING_TABLE }}"
+
+      - name: Deploy billing analyzer function
+        run: |
+          gcloud functions deploy billing-analyzer \
+            --gen2 \
+            --runtime=python311 \
+            --region=${{ env.REGION }} \
+            --source=functions/billing_analyzer \
+            --entry-point=billing_analyzer \
+            --trigger-http \
+            --allow-unauthenticated \
+            --set-env-vars="GCP_PROJECT_ID=${{ env.PROJECT_ID }},\
+          BILLING_DATASET=billing_export,\
+          BILLING_TABLE=${{ secrets.BILLING_TABLE }},\
+          ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }},\
+          SENDGRID_API_KEY=${{ secrets.SENDGRID_API_KEY }},\
+          REPORT_EMAIL=${{ secrets.REPORT_EMAIL }}"
+
+      - name: Deploy anomaly detector function
+        run: |
+          gcloud functions deploy anomaly-detector \
+            --gen2 \
+            --runtime=python311 \
+            --region=${{ env.REGION }} \
+            --source=functions/anomaly_detector \
+            --entry-point=anomaly_detector \
+            --trigger-http \
+            --allow-unauthenticated \
+            --set-env-vars="GCP_PROJECT_ID=${{ env.PROJECT_ID }},\
+          BILLING_DATASET=billing_export,\
+          BILLING_TABLE=${{ secrets.BILLING_TABLE }},\
+          ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }},\
+          PUBSUB_TOPIC=cost-anomalies-dev,\
+          ANOMALY_THRESHOLD_PCT=50"
+
+      - name: Build and deploy dashboard
+        run: |
+          gcloud builds submit dashboard/ \
+            --tag gcr.io/${{ env.PROJECT_ID }}/cost-dashboard:${{ github.sha }}
+
+          gcloud run deploy cost-dashboard \
+            --image gcr.io/${{ env.PROJECT_ID }}/cost-dashboard:${{ github.sha }} \
+            --region ${{ env.REGION }} \
+            --platform managed \
+            --allow-unauthenticated \
+            --set-env-vars="GCP_PROJECT_ID=${{ env.PROJECT_ID }},\
+          PUBSUB_TOPIC=cost-anomalies-dev,\
+          PUBSUB_SUBSCRIPTION=cost-anomalies-sub-dev"
+
+      - name: Get dashboard URL
+        run: |
+          URL=$(gcloud run services describe cost-dashboard \
+            --region=${{ env.REGION }} \
+            --format='value(status.url)')
+          echo "Dashboard URL: $URL"
+          echo "## Deployment complete" >> $GITHUB_STEP_SUMMARY
+          echo "Dashboard: $URL" >> $GITHUB_STEP_SUMMARY
