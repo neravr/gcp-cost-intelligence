@@ -1,6 +1,6 @@
 # GCP Cost Intelligence Platform
 
-A cloud cost intelligence platform built on GCP that automatically analyzes your billing data, detects spending anomalies, and delivers AI-powered optimization recommendations — through a live dashboard and daily email reports.
+A cloud cost intelligence platform built on GCP that automatically analyzes your billing data, detects spending anomalies, and delivers AI-powered optimization recommendations: through a live dashboard and daily email reports.
 
 Built to demonstrate end-to-end GCP engineering: BigQuery, Cloud Functions, Cloud Run, Pub/Sub, Cloud Scheduler, Terraform, and the Claude API.
 
@@ -8,11 +8,11 @@ Built to demonstrate end-to-end GCP engineering: BigQuery, Cloud Functions, Clou
 
 ## The problem this solves
 
-Cloud bills are hard to read. GCP's billing console shows you numbers but not insights. You know BigQuery cost $312 last week — but is that normal? Is it trending up? What should you do about it?
+Cloud bills are hard to read. GCP's billing console shows you numbers but not insights. You know BigQuery cost $312 last week, but is that normal? Is it trending up? What should you do about it?
 
-This platform answers those questions automatically. Every morning it queries your billing data, sends it to Claude, and produces a plain English report: what changed, what's anomalous, and exactly what to do to reduce costs — with estimated savings per recommendation.
+This platform answers those questions automatically. Every morning it queries your billing data, sends it to Claude, and produces a plain English report: what changed, what's anomalous, and exactly what to do to reduce costs, with estimated savings per recommendation.
 
-At Capgemini I found $500K in annual cloud waste across 15 client accounts by doing this manually. This project automates that process.
+At Capgemini I found $150K in annual cloud waste across 3 client accounts by doing this manually. This project automates that process.
 
 ---
 
@@ -91,16 +91,16 @@ Dashboard picks up real-time anomaly alerts
 
 ## Screenshots
 
-### Live dashboard — AI-powered cost intelligence
+### Live dashboard - AI-powered cost intelligence
 ![Dashboard](docs/screenshots/dashboard.png)
 
-### BigQuery datasets — billing export + analysis results
+### BigQuery datasets - billing export + analysis results
 ![BigQuery](docs/screenshots/bigquery.png)
 
-### Cloud Functions — billing analyzer + anomaly detector
+### Cloud Functions - billing analyzer + anomaly detector
 ![Cloud Functions](docs/screenshots/cloud-functions.png)
 
-### GitHub Actions — successful deployment
+### GitHub Actions - successful deployment
 ![Deploy](docs/screenshots/deploy-success.png)
 
 ---
