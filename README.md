@@ -187,8 +187,4 @@ The dashboard will be available at the Cloud Run URL printed in the job summary.
 - Looker Studio dashboard connected to the cost_analysis BigQuery dataset
 - Historical trend analysis — month over month comparisons
 
----
 
-## License
-
-MIT
